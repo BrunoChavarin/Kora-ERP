@@ -2,9 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '../components/Card';
 import { Charts } from '../components/Charts';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../services/db';
-import { Product, Sale, Purchase, Transaction, Customer, Supplier } from '../types';
-import { DollarSign, ArrowUpRight, ArrowDownRight, Package, AlertTriangle, Users } from 'lucide-react';
+import { Product, Sale, Purchase, Transaction } from '../types';
+import { productsService } from '../services/products.service';
+import { salesService } from '../services/sales.service';
+import { purchasesService } from '../services/purchases.service';
+import { contactsService } from '../services/contacts.service';
+import { financeService } from '../services/finance.service';
+import { ArrowUpRight, AlertTriangle } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { company } = useAuth();
@@ -15,13 +19,32 @@ export const Dashboard: React.FC = () => {
   const [customersCount, setCustomersCount] = useState(0);
   const [suppliersCount, setSuppliersCount] = useState(0);
 
+  const loadDashboardData = async () => {
+    try {
+      const prodList = await productsService.getAll();
+      setProducts(prodList);
+      
+      const salesList = await salesService.getAll();
+      setSales(salesList);
+
+      const purchList = await purchasesService.getAll();
+      setPurchases(purchList);
+
+      const txList = await financeService.getTransactions();
+      setTransactions(txList);
+
+      const custs = await contactsService.getCustomers();
+      setCustomersCount(custs.length);
+
+      const supps = await contactsService.getSuppliers();
+      setSuppliersCount(supps.length);
+    } catch (err) {
+      console.error('Error al cargar datos del dashboard:', err);
+    }
+  };
+
   useEffect(() => {
-    setSales(db.get('sales'));
-    setPurchases(db.get('purchases'));
-    setProducts(db.get('products'));
-    setTransactions(db.get('transactions'));
-    setCustomersCount(db.get('customers').length);
-    setSuppliersCount(db.get('suppliers').length);
+    loadDashboardData();
   }, []);
 
   // Compute stats
@@ -208,7 +231,7 @@ export const Dashboard: React.FC = () => {
                     color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)'
                   }}
                 >
-                  {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString('es-MX')}
+                  {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}
                 </span>
               </div>
             ))}

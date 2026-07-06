@@ -1,46 +1,176 @@
-import { db } from './db';
+import { supabase } from '../config/supabase';
 import { Customer, Supplier } from '../types';
 
 export const contactsService = {
   async getCustomers(): Promise<Customer[]> {
-    return db.get('customers');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) return [];
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) return [];
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('company_id', profile.company_id);
+
+    if (error) throw error;
+
+    return (data || []).map(c => ({
+      id: c.id,
+      companyId: c.company_id,
+      name: c.name,
+      companyName: c.company_name,
+      email: c.email,
+      phone: c.phone,
+      address: c.address,
+      rfc: c.rfc,
+      paymentMethod: c.payment_method,
+      notes: c.notes,
+      balancePending: Number(c.balance_pending),
+      createdAt: c.created_at
+    }));
   },
 
   async saveCustomer(customer: Customer): Promise<Customer> {
-    const list: Customer[] = db.get('customers');
-    const index = list.findIndex(c => c.id === customer.id);
-    if (index >= 0) {
-      list[index] = customer;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) throw new Error('No autenticado.');
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) throw new Error('Perfil no encontrado.');
+
+    const isNew = customer.id.startsWith('cust-');
+    const payload = {
+      company_id: profile.company_id,
+      name: customer.name,
+      company_name: customer.companyName || null,
+      email: customer.email,
+      phone: customer.phone || null,
+      address: customer.address || null,
+      rfc: customer.rfc || null,
+      payment_method: customer.paymentMethod,
+      notes: customer.notes || null,
+      balance_pending: customer.balancePending
+    };
+
+    if (!isNew) {
+      const { error } = await supabase
+        .from('customers')
+        .update(payload)
+        .eq('id', customer.id);
+      if (error) throw error;
     } else {
-      list.push(customer);
+      const { error } = await supabase
+        .from('customers')
+        .insert(payload);
+      if (error) throw error;
     }
-    db.save('customers', list);
+
     return customer;
   },
 
   async deleteCustomer(id: string): Promise<void> {
-    const list: Customer[] = db.get('customers');
-    db.save('customers', list.filter(c => c.id !== id));
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 
   async getSuppliers(): Promise<Supplier[]> {
-    return db.get('suppliers');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) return [];
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) return [];
+
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('company_id', profile.company_id);
+
+    if (error) throw error;
+
+    return (data || []).map(s => ({
+      id: s.id,
+      companyId: s.company_id,
+      companyName: s.company_name,
+      contactName: s.contact_name,
+      phone: s.phone,
+      email: s.email,
+      address: s.address,
+      rfc: s.rfc,
+      paymentMethod: s.payment_method,
+      creditTermsDays: Number(s.credit_terms_days),
+      notes: s.notes,
+      createdAt: s.created_at
+    }));
   },
 
   async saveSupplier(supplier: Supplier): Promise<Supplier> {
-    const list: Supplier[] = db.get('suppliers');
-    const index = list.findIndex(s => s.id === supplier.id);
-    if (index >= 0) {
-      list[index] = supplier;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) throw new Error('No autenticado.');
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) throw new Error('Perfil no encontrado.');
+
+    const isNew = supplier.id.startsWith('supp-');
+    const payload = {
+      company_id: profile.company_id,
+      company_name: supplier.companyName,
+      contact_name: supplier.contactName || null,
+      phone: supplier.phone || null,
+      email: supplier.email,
+      address: supplier.address || null,
+      rfc: supplier.rfc || null,
+      payment_method: supplier.paymentMethod,
+      credit_terms_days: supplier.creditTermsDays,
+      notes: supplier.notes || null
+    };
+
+    if (!isNew) {
+      const { error } = await supabase
+        .from('suppliers')
+        .update(payload)
+        .eq('id', supplier.id);
+      if (error) throw error;
     } else {
-      list.push(supplier);
+      const { error } = await supabase
+        .from('suppliers')
+        .insert(payload);
+      if (error) throw error;
     }
-    db.save('suppliers', list);
+
     return supplier;
   },
 
   async deleteSupplier(id: string): Promise<void> {
-    const list: Supplier[] = db.get('suppliers');
-    db.save('suppliers', list.filter(s => s.id !== id));
+    const { error } = await supabase
+      .from('suppliers')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 };
