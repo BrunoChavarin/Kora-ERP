@@ -11,6 +11,7 @@ export interface User {
 export interface Company {
   id: string;
   name: string;
+  slug: string;
   rfc?: string;
   currency: string;
   taxRate: number; // default e.g. 16 for 16%

@@ -4,13 +4,11 @@ import { AuthLayout } from '../layouts/AuthLayout';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { authService } from '../services/auth.service';
+import { useNavigate } from 'react-router-dom';
 
-interface RecoverPasswordProps {
-  onNavigate: (view: 'login') => void;
-}
-
-export const RecoverPassword: React.FC<RecoverPasswordProps> = ({ onNavigate }) => {
+export const RecoverPassword: React.FC = () => {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +26,7 @@ export const RecoverPassword: React.FC<RecoverPasswordProps> = ({ onNavigate }) 
         'Correo enviado',
         'Te enviamos un enlace de recuperación si la cuenta existe.'
       );
-      onNavigate('login');
+      navigate('/login');
     } catch {
       showToast('danger', 'Error', 'Ocurrió un problema, intenta más tarde.');
     } finally {
@@ -58,7 +56,7 @@ export const RecoverPassword: React.FC<RecoverPasswordProps> = ({ onNavigate }) 
         <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px' }}>
           <button
             type="button"
-            onClick={() => onNavigate('login')}
+            onClick={() => navigate('/login')}
             style={{
               background: 'transparent',
               border: 'none',

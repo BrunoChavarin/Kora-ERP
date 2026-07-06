@@ -4,14 +4,12 @@ import { useToast } from '../contexts/ToastContext';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
+import { useNavigate } from 'react-router-dom';
 
-interface RegisterProps {
-  onNavigate: (view: 'login') => void;
-}
-
-export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
+export const Register: React.FC = () => {
   const { register } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -33,8 +31,9 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
     }
     setLoading(true);
     try {
-      await register({ firstName, lastName, email, companyName });
+      const session = await register({ firstName, lastName, email, password, companyName });
       showToast('success', 'Registro exitoso', 'Tu cuenta y empresa han sido creadas.');
+      navigate(`/${session.company.slug}/dashboard`, { replace: true });
     } catch (err: any) {
       showToast('danger', 'Error al registrar', err.message || 'Intenta de nuevo.');
     } finally {
@@ -90,7 +89,7 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
           ¿Ya tienes cuenta?{' '}
           <button
             type="button"
-            onClick={() => onNavigate('login')}
+            onClick={() => navigate('/login')}
             style={{
               background: 'transparent',
               border: 'none',

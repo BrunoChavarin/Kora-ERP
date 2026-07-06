@@ -25,35 +25,43 @@ export const Configuracion: React.FC = () => {
   // Simulator state
   const [backupLoading, setBackupLoading] = useState(false);
 
-  const handleSaveCompany = (e: React.FormEvent) => {
+  const handleSaveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!compName) return;
 
-    const payload: Company = {
-      ...company!,
-      name: compName,
-      rfc: compRfc,
-      taxRate: Number(compTax),
-      currency: compCurrency
-    };
+    try {
+      const payload: Company = {
+        ...company!,
+        name: compName,
+        rfc: compRfc,
+        taxRate: Number(compTax),
+        currency: compCurrency
+      };
 
-    updateCompany(payload);
-    showToast('success', 'Configuración guardada', 'Los datos de la empresa se actualizaron.');
+      await updateCompany(payload);
+      showToast('success', 'Configuración guardada', 'Los datos de la empresa se actualizaron.');
+    } catch (err: any) {
+      showToast('danger', 'Error al guardar', err.message || 'Intenta de nuevo.');
+    }
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usrFirstName || !usrEmail) return;
 
-    const payload: User = {
-      ...user!,
-      firstName: usrFirstName,
-      lastName: usrLastName,
-      email: usrEmail
-    };
+    try {
+      const payload: User = {
+        ...user!,
+        firstName: usrFirstName,
+        lastName: usrLastName,
+        email: usrEmail
+      };
 
-    updateUser(payload);
-    showToast('success', 'Perfil guardado', 'Tus datos de acceso han sido actualizados.');
+      await updateUser(payload);
+      showToast('success', 'Perfil guardado', 'Tus datos de acceso han sido actualizados.');
+    } catch (err: any) {
+      showToast('danger', 'Error al guardar', err.message || 'Intenta de nuevo.');
+    }
   };
 
   const triggerBackup = () => {

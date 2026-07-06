@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -16,17 +17,17 @@ import {
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
 }
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
-  children,
-  activeTab,
-  setActiveTab
-}) => {
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, company, logout } = useAuth();
+  const navigate = useNavigate();
+  const { companySlug } = useParams<{ companySlug: string }>();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  // Get active tab from path (e.g. /acme/inventarios -> inventarios)
+  const pathParts = window.location.pathname.split('/');
+  const activeTab = pathParts[2] || 'dashboard';
 
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
@@ -39,6 +40,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     { id: 'reportes', name: 'Reportes', icon: BarChart3 },
     { id: 'configuracion', name: 'Configuración', icon: Settings }
   ];
+
+  const handleTabClick = (tabId: string) => {
+    setMobileOpen(false);
+    navigate(`/${companySlug}/${tabId}`);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <div
@@ -105,10 +116,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMobileOpen(false);
-                }}
+                onClick={() => handleTabClick(item.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -157,8 +165,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 flexShrink: 0
               }}
             >
-              {user?.firstName[0]}
-              {user?.lastName[0]}
+              {user?.firstName ? user.firstName[0] : 'U'}
+              {user?.lastName ? user.lastName[0] : ''}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
@@ -170,7 +178,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             style={{
               background: 'transparent',
               border: 'none',
@@ -290,10 +298,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 return (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setMobileOpen(false);
-                    }}
+                    onClick={() => handleTabClick(item.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -316,7 +321,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </nav>
             <div style={{ padding: '16px', borderTop: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '13px' }}>{user?.firstName}</span>
-              <button onClick={logout} style={{ background: 'transparent', border: 'none' }}><LogOut size={16} /></button>
+              <button onClick={handleLogout} style={{ background: 'transparent', border: 'none' }}><LogOut size={16} /></button>
             </div>
           </div>
         </div>

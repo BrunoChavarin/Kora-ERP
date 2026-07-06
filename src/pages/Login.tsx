@@ -4,16 +4,15 @@ import { useToast } from '../contexts/ToastContext';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
+import { useNavigate } from 'react-router-dom';
 
-interface LoginProps {
-  onNavigate: (view: 'register' | 'recover') => void;
-}
-
-export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
+export const Login: React.FC = () => {
   const { login } = useAuth();
   const { showToast } = useToast();
-  const [email, setEmail] = useState('admin@acme.com');
-  const [password, setPassword] = useState('password123');
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,8 +23,10 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     }
     setLoading(true);
     try {
-      await login(email, password);
+      const session = await login(email, password);
       showToast('success', 'Sesión iniciada', 'Bienvenido a Kora ERP.');
+      // Redirect to company dashboard slug
+      navigate(`/${session.company.slug}/dashboard`, { replace: true });
     } catch (err: any) {
       showToast('danger', 'Error de ingreso', err.message || 'Credenciales inválidas.');
     } finally {
@@ -55,7 +56,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           />
           <button
             type="button"
-            onClick={() => onNavigate('recover')}
+            onClick={() => navigate('/recover')}
             style={{
               alignSelf: 'flex-end',
               background: 'transparent',
@@ -78,7 +79,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           ¿No tienes una cuenta?{' '}
           <button
             type="button"
-            onClick={() => onNavigate('register')}
+            onClick={() => navigate('/register')}
             style={{
               background: 'transparent',
               border: 'none',

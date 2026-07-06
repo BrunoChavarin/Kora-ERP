@@ -3,6 +3,7 @@ import { Product, Customer, Supplier, BankAccount, Transaction, Sale, Purchase, 
 export const MOCK_COMPANY: Company = {
   id: 'comp-1',
   name: 'Acme Corporación S.A. de C.V.',
+  slug: 'acme',
   rfc: 'ACM120345TR4',
   currency: 'MXN',
   taxRate: 16,
