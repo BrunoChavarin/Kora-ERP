@@ -1,7 +1,101 @@
 import { supabase } from '../config/supabase';
-import { Product, InventoryMovement } from '../types';
+import { Product, InventoryMovement, ProductGroup } from '../types';
 
 export const productsService = {
+  // --- Product Groups ---
+  async getGroups(): Promise<ProductGroup[]> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) return [];
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) return [];
+
+    const { data, error } = await supabase
+      .from('product_groups')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .order('name');
+
+    if (error) throw error;
+
+    return (data || []).map(g => ({
+      id: g.id,
+      companyId: g.company_id,
+      name: g.name,
+      description: g.description,
+      color: g.color,
+      createdAt: g.created_at
+    }));
+  },
+
+  async saveGroup(group: Partial<ProductGroup>): Promise<ProductGroup> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) throw new Error('Usuario no autenticado.');
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) throw new Error('No se encontró el perfil de la empresa.');
+
+    const payload = {
+      name: group.name,
+      description: group.description,
+      color: group.color,
+      company_id: profile.company_id
+    };
+
+    if (group.id && !group.id.startsWith('new-')) {
+      const { data, error } = await supabase
+        .from('product_groups')
+        .update(payload)
+        .eq('id', group.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        companyId: data.company_id,
+        name: data.name,
+        description: data.description,
+        color: data.color,
+        createdAt: data.created_at
+      };
+    } else {
+      const { data, error } = await supabase
+        .from('product_groups')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        companyId: data.company_id,
+        name: data.name,
+        description: data.description,
+        color: data.color,
+        createdAt: data.created_at
+      };
+    }
+  },
+
+  async deleteGroup(groupId: string): Promise<void> {
+    const { error } = await supabase
+      .from('product_groups')
+      .delete()
+      .eq('id', groupId);
+
+    if (error) throw error;
+  },
+
+  // --- Products ---
   async getAll(): Promise<Product[]> {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) return [];
@@ -24,6 +118,7 @@ export const productsService = {
     return (data || []).map(p => ({
       id: p.id,
       companyId: p.company_id,
+      groupId: p.group_id,
       name: p.name,
       sku: p.sku,
       barcode: p.barcode,
@@ -53,8 +148,6 @@ export const productsService = {
 
     if (!profile) throw new Error('No se encontró el perfil de la empresa.');
 
-    // Remove client side specific ID if creating new to let UUID gen work or parse properly
-    const isNew = !product.id.startsWith('prod-') && product.id.includes('-'); 
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const hasValidUuid = uuidPattern.test(product.id);
 
@@ -64,6 +157,7 @@ export const productsService = {
       barcode: product.barcode,
       category: product.category,
       supplier_id: product.supplierId || null,
+      group_id: product.groupId || null,
       cost: product.cost,
       price: product.price,
       stock: product.stock,
@@ -126,7 +220,6 @@ export const productsService = {
 
     if (error) throw error;
 
-    // Adjust product stock
     const { data: prod } = await supabase
       .from('products')
       .select('stock')

@@ -25,9 +25,19 @@ export interface Role {
   permissions: string[];
 }
 
+export interface ProductGroup {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  color?: string;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   companyId: string;
+  groupId?: string; // Links to product group
   name: string;
   sku: string;
   barcode?: string;
