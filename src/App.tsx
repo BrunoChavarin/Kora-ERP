@@ -17,6 +17,7 @@ import { Proveedores } from './pages/Proveedores';
 import { Finanzas } from './pages/Finanzas';
 import { Reportes } from './pages/Reportes';
 import { Configuracion } from './pages/Configuracion';
+import { AnalisisCostos } from './pages/AnalisisCostos';
 import { DashboardLayout } from './layouts/DashboardLayout';
 
 // Route Guard to verify auth and active company slug matching
@@ -187,6 +188,16 @@ export const App: React.FC = () => {
             <PrivateRouteGuard>
               <DashboardLayout>
                 <Configuracion />
+              </DashboardLayout>
+            </PrivateRouteGuard>
+          }
+        />
+        <Route
+          path="/:companySlug/analisis-costos"
+          element={
+            <PrivateRouteGuard>
+              <DashboardLayout>
+                <AnalisisCostos />
               </DashboardLayout>
             </PrivateRouteGuard>
           }

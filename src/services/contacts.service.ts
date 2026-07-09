@@ -24,6 +24,7 @@ export const contactsService = {
     return (data || []).map(c => ({
       id: c.id,
       companyId: c.company_id,
+      consecutiveId: c.consecutive_id,
       name: c.name,
       companyName: c.company_name,
       email: c.email,
@@ -50,8 +51,24 @@ export const contactsService = {
     if (!profile) throw new Error('Perfil no encontrado.');
 
     const isNew = customer.id.startsWith('cust-');
+    let consecutiveId = customer.consecutiveId;
+
+    if (isNew) {
+      const { data: maxData, error: maxErr } = await supabase
+        .from('customers')
+        .select('consecutive_id')
+        .eq('company_id', profile.company_id)
+        .order('consecutive_id', { ascending: false })
+        .limit(1);
+
+      if (maxErr) throw maxErr;
+      const maxVal = maxData && maxData.length > 0 ? (maxData[0].consecutive_id || 0) : 0;
+      consecutiveId = maxVal + 1;
+    }
+
     const payload = {
       company_id: profile.company_id,
+      consecutive_id: consecutiveId,
       name: customer.name,
       company_name: customer.companyName || null,
       email: customer.email,
@@ -76,7 +93,10 @@ export const contactsService = {
       if (error) throw error;
     }
 
-    return customer;
+    return {
+      ...customer,
+      consecutiveId
+    };
   },
 
   async deleteCustomer(id: string): Promise<void> {
@@ -110,6 +130,7 @@ export const contactsService = {
     return (data || []).map(s => ({
       id: s.id,
       companyId: s.company_id,
+      consecutiveId: s.consecutive_id,
       companyName: s.company_name,
       contactName: s.contact_name,
       phone: s.phone,
@@ -136,8 +157,24 @@ export const contactsService = {
     if (!profile) throw new Error('Perfil no encontrado.');
 
     const isNew = supplier.id.startsWith('supp-');
+    let consecutiveId = supplier.consecutiveId;
+
+    if (isNew) {
+      const { data: maxData, error: maxErr } = await supabase
+        .from('suppliers')
+        .select('consecutive_id')
+        .eq('company_id', profile.company_id)
+        .order('consecutive_id', { ascending: false })
+        .limit(1);
+
+      if (maxErr) throw maxErr;
+      const maxVal = maxData && maxData.length > 0 ? (maxData[0].consecutive_id || 0) : 0;
+      consecutiveId = maxVal + 1;
+    }
+
     const payload = {
       company_id: profile.company_id,
+      consecutive_id: consecutiveId,
       company_name: supplier.companyName,
       contact_name: supplier.contactName || null,
       phone: supplier.phone || null,
@@ -162,7 +199,10 @@ export const contactsService = {
       if (error) throw error;
     }
 
-    return supplier;
+    return {
+      ...supplier,
+      consecutiveId
+    };
   },
 
   async deleteSupplier(id: string): Promise<void> {

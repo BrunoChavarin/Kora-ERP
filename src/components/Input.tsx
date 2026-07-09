@@ -1,11 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
 
-export const Input: React.FC<InputProps> = ({ label, error, style, ...props }) => {
+export const Input: React.FC<InputProps> = ({ label, error, style, onFocus, onBlur, value, ...props }) => {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(true);
+    if (props.type === 'number' && (value === 0 || value === '0')) {
+      e.target.select();
+    }
+    if (onFocus) onFocus(e);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(false);
+    if (onBlur) onBlur(e);
+  };
+
+  // If focused and value is 0, render empty string so user can type freely without a sticky 0
+  const displayValue = props.type === 'number' && isFocused && (value === 0 || value === '0')
+    ? ''
+    : value;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
       {label && (
@@ -14,6 +34,9 @@ export const Input: React.FC<InputProps> = ({ label, error, style, ...props }) =
         </label>
       )}
       <input
+        value={displayValue}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         style={{
           padding: '10px 14px',
           borderRadius: 'var(--radius-sm)',

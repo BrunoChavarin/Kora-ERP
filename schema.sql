@@ -30,6 +30,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.customers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+  consecutive_id INT,
   name TEXT NOT NULL,
   company_name TEXT,
   email TEXT NOT NULL,
@@ -49,14 +50,13 @@ ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.suppliers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+  consecutive_id INT,
   company_name TEXT NOT NULL,
-  contact_name TEXT,
-  phone TEXT,
+  contact_name TEXT NOT NULL,
   email TEXT NOT NULL,
+  phone TEXT,
   address TEXT,
   rfc TEXT,
-  payment_method TEXT DEFAULT 'Transferencia',
-  credit_terms_days INT DEFAULT 0 NOT NULL,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -109,6 +109,9 @@ CREATE TABLE public.sales (
   company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
   customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
   customer_name TEXT NOT NULL,
+  folio TEXT,
+  customer_purchase_number INT,
+  global_consecutive INT,
   subtotal NUMERIC NOT NULL,
   tax NUMERIC NOT NULL,
   discount NUMERIC DEFAULT 0 NOT NULL,
@@ -146,11 +149,16 @@ CREATE TABLE public.purchases (
   company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
   supplier_id UUID REFERENCES public.suppliers(id) ON DELETE SET NULL,
   supplier_name TEXT NOT NULL,
+  order_number TEXT NOT NULL,
+  folio TEXT,
+  supplier_purchase_number INT,
+  global_consecutive INT,
+  user_name TEXT,
   subtotal NUMERIC NOT NULL,
   tax NUMERIC NOT NULL,
   discount NUMERIC DEFAULT 0 NOT NULL,
   total NUMERIC NOT NULL,
-  status TEXT CHECK (status IN ('paid', 'pending', 'partial')) NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'received', 'cancelled')) NOT NULL,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -205,6 +213,38 @@ CREATE TABLE public.transactions (
 
 -- Habilitar RLS en transactions
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+
+-- 13. Crear tabla de Historial de Costos de Compra (purchase_costs_history)
+CREATE TABLE public.purchase_costs_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  supplier_id UUID REFERENCES public.suppliers(id) ON DELETE SET NULL,
+  purchase_order_id UUID REFERENCES public.purchases(id) ON DELETE CASCADE,
+  cost NUMERIC NOT NULL,
+  quantity NUMERIC NOT NULL,
+  user_name TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Habilitar RLS en purchase_costs_history
+ALTER TABLE public.purchase_costs_history ENABLE ROW LEVEL SECURITY;
+
+-- 14. Crear tabla de Historial de Precios de Venta (customer_prices_history)
+CREATE TABLE public.customer_prices_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+  customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  sale_id UUID REFERENCES public.sales(id) ON DELETE CASCADE,
+  price NUMERIC NOT NULL,
+  quantity NUMERIC NOT NULL,
+  user_name TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Habilitar RLS en customer_prices_history
+ALTER TABLE public.customer_prices_history ENABLE ROW LEVEL SECURITY;
 
 
 -- ==========================================
@@ -291,3 +331,45 @@ CREATE POLICY "Acceso a cuentas bancarias de la empresa" ON public.bank_accounts
 -- Políticas para transacciones (transactions)
 CREATE POLICY "Acceso a transacciones de la empresa" ON public.transactions
   FOR ALL USING (company_id = public.get_user_company_id());
+
+-- Políticas para purchase_costs_history
+CREATE POLICY "Acceso a historial de costos de compra de la empresa" ON public.purchase_costs_history
+  FOR ALL USING (company_id = public.get_user_company_id());
+
+-- Políticas para customer_prices_history
+CREATE POLICY "Acceso a historial de precios de venta de la empresa" ON public.customer_prices_history
+  FOR ALL USING (company_id = public.get_user_company_id());
+
+-- 11. Tabla de Precios Personalizados de Clientes (customer_custom_prices)
+CREATE TABLE public.customer_custom_prices (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+  customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE NOT NULL,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  price NUMERIC NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(customer_id, product_id)
+);
+
+ALTER TABLE public.customer_custom_prices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Acceso a precios personalizados de la empresa" ON public.customer_custom_prices
+  FOR ALL USING (company_id = public.get_user_company_id());
+
+-- 12. Tabla de Historial de Cambios de Precios Personalizados (customer_custom_prices_history)
+CREATE TABLE public.customer_custom_prices_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+  customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE NOT NULL,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  old_price NUMERIC,
+  new_price NUMERIC NOT NULL,
+  user_name TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.customer_custom_prices_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Acceso a historial de precios personalizados de la empresa" ON public.customer_custom_prices_history
+  FOR ALL USING (company_id = public.get_user_company_id());
+

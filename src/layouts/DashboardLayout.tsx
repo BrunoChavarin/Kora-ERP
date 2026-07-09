@@ -12,7 +12,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Menu
+  Menu,
+  Calculator
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -38,6 +39,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { id: 'proveedores', name: 'Proveedores', icon: Building },
     { id: 'finanzas', name: 'Finanzas', icon: PiggyBank },
     { id: 'reportes', name: 'Reportes', icon: BarChart3 },
+    { id: 'analisis-costos', name: 'Análisis de Costos', icon: Calculator },
     { id: 'configuracion', name: 'Configuración', icon: Settings }
   ];
 

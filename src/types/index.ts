@@ -68,6 +68,7 @@ export interface InventoryMovement {
 export interface Customer {
   id: string;
   companyId: string;
+  consecutiveId?: number;
   name: string;
   companyName?: string;
   email: string;
@@ -83,6 +84,7 @@ export interface Customer {
 export interface Supplier {
   id: string;
   companyId: string;
+  consecutiveId?: number;
   companyName: string;
   contactName?: string;
   phone?: string;
@@ -111,12 +113,15 @@ export interface Purchase {
   companyId: string;
   supplierId: string;
   supplierName: string;
+  orderNumber: string;
+  folio?: string;
+  userName?: string;
   items: PurchaseItem[];
   subtotal: number;
   tax: number;
   discount: number;
   total: number;
-  status: 'paid' | 'pending' | 'partial';
+  status: 'pending' | 'received' | 'cancelled';
   notes?: string;
   createdAt: string;
 }
@@ -130,6 +135,7 @@ export interface SaleItem {
   discount: number;
   subtotal: number;
   total: number;
+  priceOrigin?: string;
 }
 
 export interface Sale {
@@ -137,6 +143,7 @@ export interface Sale {
   companyId: string;
   customerId: string;
   customerName: string;
+  folio?: string;
   items: SaleItem[];
   subtotal: number;
   tax: number;
@@ -169,5 +176,62 @@ export interface Transaction {
   description?: string;
   referenceId?: string; // saleId or purchaseId or transfer destination accountId
   date: string;
+  createdAt: string;
+}
+
+export interface PurchaseCostHistory {
+  id: string;
+  companyId: string;
+  productId: string;
+  supplierId?: string;
+  purchaseOrderId?: string;
+  cost: number;
+  quantity: number;
+  userName?: string;
+  createdAt: string;
+  // Join fields for UI
+  supplierName?: string;
+  orderNumber?: string;
+}
+
+export interface CustomerPriceHistory {
+  id: string;
+  companyId: string;
+  customerId?: string;
+  productId: string;
+  saleId?: string;
+  price: number;
+  quantity: number;
+  userName?: string;
+  createdAt: string;
+  // Join fields for UI
+  productName?: string;
+  saleFolio?: string;
+}
+
+export interface CustomerCustomPrice {
+  id: string;
+  companyId: string;
+  customerId: string;
+  productId: string;
+  price: number;
+  updatedAt: string;
+  // UI Join fields
+  productName?: string;
+  category?: string;
+  groupId?: string;
+  unit?: string;
+  lastSalePrice?: number;
+  lastSaleDate?: string;
+}
+
+export interface CustomerCustomPriceHistory {
+  id: string;
+  companyId: string;
+  customerId: string;
+  productId: string;
+  oldPrice?: number;
+  newPrice: number;
+  userName?: string;
   createdAt: string;
 }

@@ -8,7 +8,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { productsService } from '../services/products.service';
 import { contactsService } from '../services/contacts.service';
-import { Product, Supplier, ProductGroup } from '../types';
+import { purchasesService } from '../services/purchases.service';
+import { Product, Supplier, ProductGroup, PurchaseCostHistory } from '../types';
 import { Plus, Edit2, Trash2, FolderPlus, HelpCircle } from 'lucide-react';
 
 export const Inventarios: React.FC = () => {
@@ -22,6 +23,10 @@ export const Inventarios: React.FC = () => {
   // Modals state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+
+  // Tab State in Product Modal
+  const [activeTab, setActiveTab] = useState<'info' | 'history'>('info');
+  const [costHistory, setCostHistory] = useState<PurchaseCostHistory[]>([]);
 
   // Product Form State
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -63,6 +68,15 @@ export const Inventarios: React.FC = () => {
     loadData();
   }, []);
 
+  const loadProductHistory = async (productId: string) => {
+    try {
+      const history = await purchasesService.getCostHistory(productId);
+      setCostHistory(history);
+    } catch (err) {
+      console.error('Error al cargar historial de costos:', err);
+    }
+  };
+
   // Open Product Modal (General or Specific to a Group)
   const openProductNew = (specificGroupId?: string) => {
     setEditProduct(null);
@@ -80,6 +94,8 @@ export const Inventarios: React.FC = () => {
     setFormStatus('active');
     setFormLocation('');
     setFormGroupId(specificGroupId || groups[0]?.id || '');
+    setCostHistory([]);
+    setActiveTab('info');
     setIsProductModalOpen(true);
   };
 
@@ -99,7 +115,18 @@ export const Inventarios: React.FC = () => {
     setFormStatus(product.status);
     setFormLocation(product.location || '');
     setFormGroupId(product.groupId || '');
+    setCostHistory([]);
+    setActiveTab('info');
+    loadProductHistory(product.id);
     setIsProductModalOpen(true);
+  };
+
+  const getAverageCost = () => {
+    if (costHistory.length === 0) return editProduct?.cost || 0;
+    const totalQty = costHistory.reduce((sum, h) => sum + h.quantity, 0);
+    if (totalQty === 0) return 0;
+    const totalSpent = costHistory.reduce((sum, h) => sum + (h.cost * h.quantity), 0);
+    return totalSpent / totalQty;
   };
 
   const handleProductSave = async (e: React.FormEvent) => {
@@ -108,6 +135,9 @@ export const Inventarios: React.FC = () => {
       showToast('warning', 'Campos incompletos', 'El nombre y SKU son requeridos.');
       return;
     }
+
+    // Determine the cost dynamically based on history if it exists, otherwise manual cost
+    const costToSave = costHistory.length > 0 ? costHistory[0].cost : Number(formCost);
 
     const payload: Product = {
       id: editProduct ? editProduct.id : `prod-${Math.random().toString(36).substr(2, 9)}`,
@@ -118,7 +148,7 @@ export const Inventarios: React.FC = () => {
       barcode: formBarcode,
       category: formCategory,
       supplierId: formSupplier,
-      cost: Number(formCost),
+      cost: costToSave,
       price: Number(formPrice),
       stock: Number(formStock),
       minStock: Number(formMinStock),
@@ -389,70 +419,174 @@ export const Inventarios: React.FC = () => {
       <Modal
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
-        title={editProduct ? 'Editar Producto' : 'Nuevo Producto'}
+        title={editProduct ? 'Detalle de Producto' : 'Nuevo Producto'}
         size="md"
         footer={
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
             <Button variant="outline" onClick={() => setIsProductModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleProductSave}>Guardar</Button>
+            {activeTab === 'info' && <Button onClick={handleProductSave}>Guardar</Button>}
           </div>
         }
       >
-        <form style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Input label="Nombre del Producto" value={formName} onChange={(e) => setFormName(e.target.value)} required />
-          
-          <Select
-            label="Grupo de Productos"
-            value={formGroupId}
-            onChange={(e) => setFormGroupId(e.target.value)}
-            options={groups.map((g) => ({ value: g.id, label: g.name }))}
-            required
-          />
+        {editProduct && (
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', marginBottom: '16px', gap: '16px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('info')}
+              style={{
+                padding: '8px 12px',
+                border: 'none',
+                background: 'transparent',
+                borderBottom: activeTab === 'info' ? '2px solid var(--brand-primary)' : 'none',
+                fontWeight: activeTab === 'info' ? 600 : 400,
+                color: activeTab === 'info' ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer'
+              }}
+            >
+              Información General
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('history')}
+              style={{
+                padding: '8px 12px',
+                border: 'none',
+                background: 'transparent',
+                borderBottom: activeTab === 'history' ? '2px solid var(--brand-primary)' : 'none',
+                fontWeight: activeTab === 'history' ? 600 : 400,
+                color: activeTab === 'history' ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer'
+              }}
+            >
+              Historial de Compras ({costHistory.length})
+            </button>
+          </div>
+        )}
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <Input label="SKU" value={formSku} onChange={(e) => setFormSku(e.target.value)} required />
-            <Input label="Código de barras" value={formBarcode} onChange={(e) => setFormBarcode(e.target.value)} />
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <Input label="Categoría" value={formCategory} onChange={(e) => setFormCategory(e.target.value)} />
+        {activeTab === 'info' ? (
+          <form style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <Input label="Nombre del Producto" value={formName} onChange={(e) => setFormName(e.target.value)} required />
+            
             <Select
-              label="Proveedor"
-              value={formSupplier}
-              onChange={(e) => setFormSupplier(e.target.value)}
-              options={suppliers.map((s) => ({ value: s.id, label: s.companyName }))}
+              label="Grupo de Productos"
+              value={formGroupId}
+              onChange={(e) => setFormGroupId(e.target.value)}
+              options={groups.map((g) => ({ value: g.id, label: g.name }))}
+              required
             />
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <Input label="Costo" type="number" value={formCost} onChange={(e) => setFormCost(Number(e.target.value))} />
-            <Input label="Precio Venta" type="number" value={formPrice} onChange={(e) => setFormPrice(Number(e.target.value))} />
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <Input label="Stock Actual" type="number" value={formStock} onChange={(e) => setFormStock(Number(e.target.value))} />
-            <Input label="Stock Mínimo" type="number" value={formMinStock} onChange={(e) => setFormMinStock(Number(e.target.value))} />
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <Input label="Unidad de medida" value={formUnit} onChange={(e) => setFormUnit(e.target.value)} placeholder="pza, kg, rollos, cajas" />
-            <Input label="Ubicación almacén" value={formLocation} onChange={(e) => setFormLocation(e.target.value)} />
-          </div>
-          <Select
-            label="Estado"
-            value={formStatus}
-            onChange={(e) => setFormStatus(e.target.value as any)}
-            options={[
-              { value: 'active', label: 'Activo' },
-              { value: 'inactive', label: 'Inactivo' }
-            ]}
-          />
-          <Input label="Descripción" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
-          
-          {editProduct && (
-            <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'flex-start' }}>
-              <Button variant="danger" size="sm" onClick={() => { setIsProductModalOpen(false); handleProductDelete(editProduct.id); }}>
-                Eliminar Producto
-              </Button>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Input label="SKU" value={formSku} onChange={(e) => setFormSku(e.target.value)} required />
+              <Input label="Código de barras" value={formBarcode} onChange={(e) => setFormBarcode(e.target.value)} />
             </div>
-          )}
-        </form>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Input label="Categoría" value={formCategory} onChange={(e) => setFormCategory(e.target.value)} />
+              <Select
+                label="Proveedor habitual"
+                value={formSupplier}
+                onChange={(e) => setFormSupplier(e.target.value)}
+                options={suppliers.map((s) => ({ value: s.id, label: s.companyName }))}
+              />
+            </div>
+
+            {editProduct && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                padding: '12px',
+                backgroundColor: 'var(--bg-secondary)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-primary)',
+                marginBottom: '4px'
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Estadísticas de Costo (Historial)</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', fontSize: '13px' }}>
+                  <div>Costo Actual (Catálogo): <strong>${(editProduct.cost ?? 0).toFixed(2)}</strong></div>
+                  <div>Último Costo Registrado: <strong>${(costHistory[0]?.cost ?? editProduct.cost ?? 0).toFixed(2)}</strong></div>
+                  <div>Costo Promedio: <strong>${getAverageCost().toFixed(2)}</strong></div>
+                  <div>Última Fecha Compra: <strong>{costHistory[0]?.createdAt ? costHistory[0].createdAt.split('T')[0] : 'N/A'}</strong></div>
+                  <div style={{ gridColumn: 'span 2' }}>Último Proveedor: <strong>{costHistory[0]?.supplierName || 'N/A'}</strong></div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Input
+                label="Costo Inicial / Estimado"
+                type="number"
+                value={formCost}
+                onChange={(e) => setFormCost(Number(e.target.value))}
+                disabled={editProduct !== null && costHistory.length > 0}
+              />
+              <Input label="Precio Venta" type="number" value={formPrice} onChange={(e) => setFormPrice(Number(e.target.value))} />
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Input label="Stock Actual" type="number" value={formStock} onChange={(e) => setFormStock(Number(e.target.value))} />
+              <Input label="Stock Mínimo" type="number" value={formMinStock} onChange={(e) => setFormMinStock(Number(e.target.value))} />
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Input label="Unidad de medida" value={formUnit} onChange={(e) => setFormUnit(e.target.value)} placeholder="pza, kg, rollos, cajas" />
+              <Input label="Ubicación almacén" value={formLocation} onChange={(e) => setFormLocation(e.target.value)} />
+            </div>
+            <Select
+              label="Estado"
+              value={formStatus}
+              onChange={(e) => setFormStatus(e.target.value as any)}
+              options={[
+                { value: 'active', label: 'Activo' },
+                { value: 'inactive', label: 'Inactivo' }
+              ]}
+            />
+            <Input label="Descripción" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
+            
+            {editProduct && (
+              <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'flex-start' }}>
+                <Button variant="danger" size="sm" onClick={() => { setIsProductModalOpen(false); handleProductDelete(editProduct.id); }}>
+                  Eliminar Producto
+                </Button>
+              </div>
+            )}
+          </form>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>Trazabilidad de Compras</span>
+            {costHistory.length === 0 ? (
+              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textAlign: 'center', padding: '24px' }}>
+                Este producto no cuenta con compras registradas en el historial.
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-primary)', color: 'var(--text-secondary)' }}>
+                      <th style={{ padding: '8px' }}>Fecha</th>
+                      <th style={{ padding: '8px' }}>Proveedor</th>
+                      <th style={{ padding: '8px' }}>Orden Compra</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Cant.</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Costo U.</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
+                      <th style={{ padding: '8px' }}>Usuario</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {costHistory.map((h, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                        <td style={{ padding: '8px' }}>{h.createdAt.split('T')[0]}</td>
+                        <td style={{ padding: '8px' }}>{h.supplierName}</td>
+                        <td style={{ padding: '8px' }}>{h.orderNumber || 'N/A'}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{h.quantity}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>${h.cost.toFixed(2)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>${(h.cost * h.quantity).toFixed(2)}</td>
+                        <td style={{ padding: '8px' }}>{h.userName || 'Sistema'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* 2. Modal: Create / Edit Group */}
