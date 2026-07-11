@@ -37,6 +37,11 @@ export const salesService = {
       status: s.status,
       invoice: s.invoice,
       notes: s.notes,
+      cancellationReason: s.cancellation_reason,
+      year: s.year,
+      month: s.month,
+      day: s.day,
+      userName: s.user_name,
       createdAt: s.created_at,
       items: (s.sale_items || []).map((i: any) => ({
         productId: i.product_id,
@@ -46,7 +51,9 @@ export const salesService = {
         taxRate: Number(i.tax_rate),
         discount: Number(i.discount),
         subtotal: Number(i.subtotal),
-        total: Number(i.total)
+        total: Number(i.total),
+        groupName: i.group_name,
+        cost: Number(i.cost || 0)
       }))
     }));
   },
@@ -131,6 +138,11 @@ export const salesService = {
     // Assemble the unique custom folio
     const folio = `${clientId}-${dateStr}-${amountStr}-${nextPurchaseNumber}-${nextGlobalConsecutive}`;
 
+    const now = new Date();
+    const yr = now.getFullYear();
+    const mo = now.getMonth() + 1;
+    const dy = now.getDate();
+
     // 1. Insert header sale
     const { data: newSale, error: saleErr } = await supabase
       .from('sales')
@@ -148,7 +160,11 @@ export const salesService = {
         payment_method: sale.paymentMethod,
         status: sale.status,
         invoice: sale.invoice || null,
-        notes: sale.notes || null
+        notes: sale.notes || null,
+        year: yr,
+        month: mo,
+        day: dy,
+        user_name: userName
       })
       .select()
       .single();
@@ -165,7 +181,9 @@ export const salesService = {
       tax_rate: item.taxRate,
       discount: item.discount,
       subtotal: item.subtotal,
-      total: item.total
+      total: item.total,
+      group_name: item.groupName || null,
+      cost: item.cost || 0
     }));
 
     const { error: itemsErr } = await supabase
@@ -333,6 +351,106 @@ export const salesService = {
       customerName: h.customers ? (h.customers.company_name ? `${h.customers.name} (${h.customers.company_name})` : h.customers.name) : 'Venta Genérica',
       saleFolio: h.sales?.folio
     }));
+  },
+
+  async cancel(id: string, reason: string): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) throw new Error('No autenticado.');
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile) throw new Error('Perfil no encontrado.');
+
+    // 1. Get current sale details including items
+    const { data: sale, error: getErr } = await supabase
+      .from('sales')
+      .select('*, sale_items(*)')
+      .eq('id', id)
+      .single();
+
+    if (getErr || !sale) throw new Error('Venta no encontrada.');
+
+    // If already cancelled, do not allow double cancellation
+    if (sale.status === 'cancelled') {
+      throw new Error('Esta venta ya se encuentra cancelada.');
+    }
+
+    const previousStatus = sale.status;
+
+    // 2. Update sale header status to cancelled
+    const { error: updErr } = await supabase
+      .from('sales')
+      .update({ status: 'cancelled', cancellation_reason: reason })
+      .eq('id', id);
+
+    if (updErr) throw updErr;
+
+    // 3. Return product items to inventory (reverse movement)
+    const items = sale.sale_items || [];
+    for (const item of items) {
+      if (item.product_id) {
+        // Create inverse movement: Entrada por cancelación de venta (type: 'in')
+        await productsService.registerMovement({
+          companyId: profile.company_id,
+          productId: item.product_id,
+          type: 'in',
+          quantity: Number(item.quantity),
+          reason: 'sale_cancellation',
+          referenceId: id
+        });
+      }
+    }
+
+    // 4. Reverse financial flow if it was 'paid' (income)
+    if (previousStatus === 'paid') {
+      const { data: accounts } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('company_id', profile.company_id);
+
+      const defaultAccount = accounts?.[0];
+      const saleTotal = Number(sale.total);
+      if (defaultAccount) {
+        const updatedBal = Number(defaultAccount.balance) - saleTotal;
+        await supabase
+          .from('bank_accounts')
+          .update({ balance: updatedBal })
+          .eq('id', defaultAccount.id);
+
+        // Insert Transaction to reflect the outflow due to cancellation
+        await supabase
+          .from('transactions')
+          .insert({
+            company_id: profile.company_id,
+            account_id: defaultAccount.id,
+            type: 'expense',
+            amount: saleTotal,
+            category: 'Ventas',
+            description: `Cancelación de venta - Folio ${sale.folio}`,
+            reference_id: id,
+            date: new Date().toISOString().split('T')[0]
+          });
+      }
+    } else if (previousStatus === 'pending' && sale.customer_id) {
+      // Revert customer pending balance
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('balance_pending')
+        .eq('id', sale.customer_id)
+        .single();
+
+      if (customer) {
+        const newBal = Number(customer.balance_pending) - Number(sale.total);
+        await supabase
+          .from('customers')
+          .update({ balance_pending: newBal })
+          .eq('id', sale.customer_id);
+      }
+    }
   },
 
   async delete(id: string): Promise<void> {

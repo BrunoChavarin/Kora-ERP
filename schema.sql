@@ -120,6 +120,10 @@ CREATE TABLE public.sales (
   status TEXT CHECK (status IN ('paid', 'pending', 'partial')) NOT NULL,
   invoice TEXT,
   notes TEXT,
+  year INT,
+  month INT,
+  day INT,
+  user_name TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -137,7 +141,9 @@ CREATE TABLE public.sale_items (
   tax_rate NUMERIC NOT NULL,
   discount NUMERIC DEFAULT 0 NOT NULL,
   subtotal NUMERIC NOT NULL,
-  total NUMERIC NOT NULL
+  total NUMERIC NOT NULL,
+  group_name TEXT,
+  cost NUMERIC DEFAULT 0
 );
 
 -- Habilitar RLS en sale_items
@@ -160,6 +166,9 @@ CREATE TABLE public.purchases (
   total NUMERIC NOT NULL,
   status TEXT CHECK (status IN ('pending', 'received', 'cancelled')) NOT NULL,
   notes TEXT,
+  year INT,
+  month INT,
+  day INT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

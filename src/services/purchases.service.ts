@@ -37,6 +37,9 @@ export const purchasesService = {
       total: Number(p.total),
       status: p.status,
       notes: p.notes,
+      year: p.year,
+      month: p.month,
+      day: p.day,
       createdAt: p.created_at,
       items: (p.purchase_items || []).map((i: any) => ({
         productId: i.product_id,
@@ -120,6 +123,11 @@ export const purchasesService = {
     const folio = `${supplierConsecutiveId}-${dateStr}-${amountStr}-${nextPurchaseNumber}-${nextGlobalConsecutive}`;
 
     // 1. Insert header purchase
+    const now = new Date();
+    const yr = now.getFullYear();
+    const mo = now.getMonth() + 1;
+    const dy = now.getDate();
+
     const { data: newPurch, error: purchErr } = await supabase
       .from('purchases')
       .insert({
@@ -136,7 +144,10 @@ export const purchasesService = {
         discount: purchase.discount,
         total: purchase.total,
         status: purchase.status,
-        notes: purchase.notes || null
+        notes: purchase.notes || null,
+        year: yr,
+        month: mo,
+        day: dy
       })
       .select()
       .single();

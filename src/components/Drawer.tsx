@@ -6,9 +6,10 @@ interface DrawerProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  maxWidth?: string;
 }
 
-export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children, footer }) => {
+export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children, footer, maxWidth }) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -54,7 +55,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
       <div
         style={{
           width: '100%',
-          maxWidth: '460px',
+          maxWidth: maxWidth || '460px',
           height: '100%',
           background: '#ffffff',
           boxShadow: 'var(--shadow-premium)',

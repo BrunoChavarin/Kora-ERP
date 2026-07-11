@@ -123,6 +123,9 @@ export interface Purchase {
   total: number;
   status: 'pending' | 'received' | 'cancelled';
   notes?: string;
+  year?: number;
+  month?: number;
+  day?: number;
   createdAt: string;
 }
 
@@ -136,6 +139,8 @@ export interface SaleItem {
   subtotal: number;
   total: number;
   priceOrigin?: string;
+  groupName?: string;
+  cost?: number;
 }
 
 export interface Sale {
@@ -150,9 +155,14 @@ export interface Sale {
   discount: number;
   total: number;
   paymentMethod: string;
-  status: 'paid' | 'pending' | 'partial';
+  status: 'paid' | 'pending' | 'partial' | 'cancelled';
   invoice?: string; // invoice number or 'no'
   notes?: string;
+  cancellationReason?: string;
+  year?: number;
+  month?: number;
+  day?: number;
+  userName?: string;
   createdAt: string;
 }
 
